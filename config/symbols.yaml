@@ -1,0 +1,6 @@
+symbols:
+  - NIFTY
+poll_interval_seconds: 60
+market_hours:
+  start: "09:14"
+  end: "15:31"
