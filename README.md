@@ -15,14 +15,23 @@ This module collects NSE option-chain snapshots for NIFTY at 1-minute frequency 
 
 ## Run once
 
+Set up the Python environment first:
+
 ```bash
-python3 scripts/run_option_chain_day.py --symbol NIFTY --once
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+Then collect a snapshot:
+
+```bash
+.venv/bin/python scripts/run_option_chain_day.py --symbol NIFTY --once
 ```
 
 ## Run for the day
 
 ```bash
-python3 scripts/run_option_chain_day.py --symbol NIFTY
+.venv/bin/python scripts/run_option_chain_day.py --symbol NIFTY
 ```
 
 ## Output layout

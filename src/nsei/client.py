@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -23,6 +26,7 @@ class NSEOptionChainClient:
     def __init__(self, config: NSEClientConfig | None = None) -> None:
         self.config = config or NSEClientConfig()
         self.session = requests.Session()
+        referer = f"{NSE_BASE}/option-chain?symbol={self.config.symbol}"
         self.session.headers.update(
             {
                 "user-agent": (
@@ -32,7 +36,7 @@ class NSEOptionChainClient:
                 ),
                 "accept": "application/json,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "accept-language": "en-US,en;q=0.9",
-                "referer": f"{NSE_BASE}/option-chain",
+                "referer": referer,
                 "cache-control": "no-cache",
                 "pragma": "no-cache",
                 "connection": "keep-alive",
@@ -41,9 +45,25 @@ class NSEOptionChainClient:
         self._bootstrapped = False
 
     def bootstrap(self) -> None:
-        response = self.session.get(f"{NSE_BASE}/option-chain", timeout=self.config.timeout)
+        url = f"{NSE_BASE}/option-chain?symbol={self.config.symbol}"
+        response = self.session.get(url, timeout=self.config.timeout)
         response.raise_for_status()
         self._bootstrapped = True
+
+    def _playwright_fetch(self, symbol: str) -> dict[str, Any]:
+        project_root = Path(__file__).resolve().parents[2]
+        script = project_root / "scripts" / "fetch_option_chain_playwright.js"
+        result = subprocess.run(
+            ["node", str(script), symbol],
+            capture_output=True,
+            text=True,
+            timeout=90,
+            check=True,
+        )
+        payload = json.loads(result.stdout or "{}")
+        if not isinstance(payload, dict):
+            raise RuntimeError("Unexpected Playwright payload shape from NSE")
+        return payload
 
     def fetch_option_chain(self, symbol: str | None = None) -> dict[str, Any]:
         if not self._bootstrapped:
@@ -69,15 +89,26 @@ class NSEOptionChainClient:
                     )
 
                 response.raise_for_status()
-                return response.json()
+                payload = response.json()
+                if isinstance(payload, dict) and payload:
+                    return payload
             except Exception as exc:
                 last_error = exc
-                if attempt < self.config.max_retries:
-                    time.sleep(self.config.sleep_between_retries)
-                    self._bootstrapped = False
-                    self.bootstrap()
-                else:
-                    break
 
-        assert last_error is not None
+            try:
+                payload = self._playwright_fetch(symbol)
+                if isinstance(payload, dict) and payload:
+                    return payload
+            except Exception as exc:
+                last_error = exc
+
+            if attempt < self.config.max_retries:
+                time.sleep(self.config.sleep_between_retries)
+                self._bootstrapped = False
+                self.bootstrap()
+            else:
+                break
+
+        if last_error is None:
+            raise RuntimeError("NSE returned empty payload after retries")
         raise last_error

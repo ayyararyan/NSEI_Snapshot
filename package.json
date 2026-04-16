@@ -1,0 +1,16 @@
+{
+  "name": "nsei",
+  "version": "1.0.0",
+  "description": "This module collects NSE option-chain snapshots for NIFTY at 1-minute frequency and stores:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.59.1"
+  }
+}
